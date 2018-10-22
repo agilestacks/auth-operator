@@ -1,0 +1,3 @@
+version: "1"
+domain: agilestacks.com
+repo: github.com/agilestacks/auth-operator
