@@ -44,13 +44,12 @@ type OidcSpec struct {
 
 	// Name and LogoURL used when displaying this client to the end user.
 	Name    string `json:"name,omitempty"`
-	LogoURL string `json:"logoURL,omitepmty"`
+	LogoURL string `json:"logoURL,omitempty"`
 }
 
 // OidcStatus defines the observed state of Oidc
 type OidcStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	ClientExists bool `json:"clientExists"`
 }
 
 // +genclient

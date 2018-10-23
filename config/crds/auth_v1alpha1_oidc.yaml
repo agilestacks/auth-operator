@@ -40,10 +40,13 @@ spec:
               items:
                 type: string
               type: array
-          required:
-          - logoURL
           type: object
         status:
+          properties:
+            clientExists:
+              type: boolean
+          required:
+          - clientExists
           type: object
   version: v1alpha1
 status:
