@@ -49,7 +49,6 @@ type OidcSpec struct {
 
 // OidcStatus defines the observed state of Oidc
 type OidcStatus struct {
-	ClientExists bool `json:"clientExists"`
 }
 
 // +genclient

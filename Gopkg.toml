@@ -19,6 +19,9 @@ required = [
 [prune]
   go-tests = true
 
+[[constraint]]
+  name = "github.com/agilestacks/dex"
+  version = "v2.12.0"
 
 # STANZAS BELOW ARE GENERATED AND MAY BE WRITTEN - DO NOT MODIFY BELOW THIS LINE.
 

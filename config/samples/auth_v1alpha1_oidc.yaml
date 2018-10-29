@@ -4,10 +4,11 @@ metadata:
   labels:
     controller-tools.k8s.io: "1.0"
   name: oidc-sample
+  namespace: kubeflow
 spec:
   # Add fields here
-  id: test-client
-  secret: 345t6dfgdfg457yrgdfgberged
-  redirectURIs:
-    - kubeflow.oleg502.kubernetes.delivery
+  id: kubeflow-client
+  secret: 345t6dfgdfg4-57yDSDfjeuDVQEW
+  redirectURIs: 
+  - http://kubeflow.oleg506.kubernetes.delivery/login/oidc
   name: 'Kubeflow AI framework'
