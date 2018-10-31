@@ -132,13 +132,11 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 		} else {
 			// Update the StaticClient section of Dex ConfigMap and write the result back into dexCm
 			log.Info("Updating entry in Dex ConfigMap", "Entry", instance.Spec.ID)
-			err = updateConfigMapEntry(dexCm, instance)
-			if err != nil {
+			if err := updateConfigMapEntry(dexCm, instance); err != nil {
 				return reconcile.Result{}, err
 			}
 			log.Info("Updating Dex ConfigMap after CRD update")
-			err = r.Update(context.TODO(), dexCm)
-			if err != nil {
+			if err := r.Update(context.TODO(), dexCm); err != nil {
 				return reconcile.Result{}, err
 			}
 
@@ -147,8 +145,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 
 			if util.UpdateDexDeployment(dexDeploy, configToken) {
 				log.Info("Restarting Dex deployment")
-				err = r.Update(context.TODO(), dexDeploy)
-				if err != nil {
+				if err := r.Update(context.TODO(), dexDeploy); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
@@ -175,8 +172,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 
 			if util.UpdateDexDeployment(dexDeploy, configToken) {
 				log.Info("Restarting Dex deployment")
-				err = r.Update(context.TODO(), dexDeploy)
-				if err != nil {
+				if err := r.Update(context.TODO(), dexDeploy); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
