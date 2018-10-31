@@ -1,4 +1,4 @@
-package oidc
+package util
 
 import (
 	"encoding/base64"

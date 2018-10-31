@@ -591,7 +591,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3b0c96330a9f9226f2b2710fbefeb98f478616a8df384f38eb36043463c78275"
+  digest = "1:482ae811efe307bd9d00f66de80385fba51325054f8ff573e894185e72441f08"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -602,7 +602,7 @@
     "ssh/terminal",
   ]
   pruneopts = "T"
-  revision = "7e6ffbd038512da5ae7ce06c196764f393990be1"
+  revision = "4d3f4d9ffa16a13f451c3b2999e9c49e9750bf06"
 
 [[projects]]
   branch = "master"
@@ -642,14 +642,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:90bf46fdbb59452792780775401f51ce68b30ebfcaf2391caa0c6be3c5da3d57"
+  digest = "1:8e0438e640c79d4b18be681a03537690629cf673017925b262fa0899f36f293a"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "T"
-  revision = "d69651ed3497faee15a5363a89578e9991f6d5e2"
+  revision = "c8e336422fdcf1a7abeb865a23da98be0d8e2bc7"
 
 [[projects]]
   digest = "1:6164911cb5e94e8d8d5131d646613ff82c14f5a8ce869de2f6d80d9889df8c5a"
@@ -696,7 +696,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7fd18f0b9ad049317d60f6124ebf24510d357ae052f2764e4d2a557fdf688791"
+  digest = "1:64dfe76c0c7b683dbed2ac492e0253a9ccedc74c39c48b9482f09ad6f7167400"
   name = "golang.org/x/tools"
   packages = [
     "go/ast/astutil",
@@ -705,7 +705,7 @@
     "internal/gopathwalk",
   ]
   pruneopts = "T"
-  revision = "2d2de6298155751e44170d1c9a9baacb688d2606"
+  revision = "a0a13e073c7bae39af55369bcd1c2dc7ebb88ede"
 
 [[projects]]
   digest = "1:193075fba81bbed6bbb7909249582de60770f5e67ed1c9321f4eeb2d9b56c7a4"
@@ -1054,7 +1054,7 @@
   revision = "0d1aeffe1c68f49accbd05c185ae534fe1372a3f"
 
 [[projects]]
-  digest = "1:f3951866d3013de73a3f1bc63e4706d872c67f68c997b886f243015afcecbab0"
+  digest = "1:ca3f51201a90f3a23bf35938ee910d2fb3095ece453cf56c8b723e935c194ebd"
   name = "sigs.k8s.io/controller-runtime"
   packages = [
     "pkg/cache",
@@ -1063,6 +1063,7 @@
     "pkg/client/apiutil",
     "pkg/client/config",
     "pkg/controller",
+    "pkg/controller/controllerutil",
     "pkg/envtest",
     "pkg/envtest/printer",
     "pkg/event",
@@ -1086,8 +1087,8 @@
     "pkg/webhook/types",
   ]
   pruneopts = "T"
-  revision = "a67a5036fa19242e7ca874420224bc26753b811f"
-  version = "v0.1.6"
+  revision = "5fd1e9e9fac5261e9ad9d47c375afc014fc31d21"
+  version = "v0.1.7"
 
 [[projects]]
   digest = "1:92290e452e328ffe6bd62f969e51d3aadd57a30a68b5fcf31ccdeda62068bb5d"
@@ -1132,14 +1133,17 @@
     "github.com/sirupsen/logrus",
     "golang.org/x/crypto/bcrypt",
     "golang.org/x/net/context",
+    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
+    "k8s.io/api/extensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/types",
+    "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
@@ -1148,6 +1152,7 @@
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/controller",
+    "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil",
     "sigs.k8s.io/controller-runtime/pkg/envtest",
     "sigs.k8s.io/controller-runtime/pkg/handler",
     "sigs.k8s.io/controller-runtime/pkg/manager",
