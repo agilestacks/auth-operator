@@ -387,7 +387,6 @@ func updateDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host 
 	for i := range c.StaticClients {
 		if c.StaticClients[i].ID == "agilestacks-console" {
 			if util.ContainsString(c.StaticClients[i].RedirectURIs, redirectURI) {
-				log.Info("RedirectURI already exists in Dex config for that static client", "RedirectURI", redirectURI, "Static client", c.StaticClients[i].ID)
 				return false
 			}
 			log.Info("Adding RedirectURI into Dex config", "RedirectURI", redirectURI)
