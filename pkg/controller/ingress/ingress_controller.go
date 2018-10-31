@@ -148,27 +148,6 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, nil
 	}
 
-	//
-	// Fetch the Dex CM
-	//
-	dexCm := &corev1.ConfigMap{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexCm)
-	if err != nil && errors.IsNotFound(err) {
-		log.Error(err, "Dex config map doesn't exists", "ConfigMap", dexCm.ObjectMeta.Name)
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Fetch the Dex deployment
-	dexDeploy := &appsv1.Deployment{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexDeploy)
-	if err != nil && errors.IsNotFound(err) {
-		log.Error(err, "Dex deployment doesn't exists", "Deployment", dexDeploy.ObjectMeta.Name)
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
 	// Used for Ingress and Deployment
 	authName := instance.GetName() + "-auth-svc"
 	authPort := aProxyPort
@@ -222,6 +201,17 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 	}
 
+	//
+	// Fetch the Dex CM
+	//
+	dexCm := &corev1.ConfigMap{}
+	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexCm)
+	if err != nil && errors.IsNotFound(err) {
+		log.Error(err, "Dex config map doesn't exists", "ConfigMap", dexCm.ObjectMeta.Name)
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
 	// Create AuthProxy ConfigMap
 	configMap := createConfigMap(instance, dexCm)
 
@@ -344,6 +334,16 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		// Calculate Dex ConfigMap checksum and put it into Dex deployment annotation for restart
 		configToken := util.ConvertConfigMapToToken(dexCm)
+
+		// Fetch the Dex deployment
+		dexDeploy := &appsv1.Deployment{}
+		err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexDeploy)
+		if err != nil && errors.IsNotFound(err) {
+			log.Error(err, "Dex deployment doesn't exists", "Deployment", dexDeploy.ObjectMeta.Name)
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			return reconcile.Result{}, err
+		}
 
 		if util.UpdateDexDeployment(dexDeploy, configToken) {
 			log.Info("Restarting Dex deployment")

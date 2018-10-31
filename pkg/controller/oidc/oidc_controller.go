@@ -17,6 +17,7 @@ package oidc
 
 import (
 	"context"
+	"os"
 
 	authv1alpha1 "github.com/agilestacks/auth-operator/pkg/apis/auth/v1alpha1"
 	util "github.com/agilestacks/auth-operator/pkg/util"
@@ -35,6 +36,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+var aProxyDexNamespace = os.Getenv("APROXY_DEX_NAMESPACE")
 
 // Add creates a new Oidc Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -96,7 +99,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 
 	// Fetch the Dex CM
 	dexCm := &corev1.ConfigMap{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: "dex"}, dexCm)
+	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexCm)
 	if err != nil && errors.IsNotFound(err) {
 		log.Error(err, "Dex config map doesn't exists", "ConfigMap", dexCm.ObjectMeta.Name)
 		return reconcile.Result{Requeue: true}, nil
@@ -106,7 +109,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 
 	// Fetch the Dex deployment
 	dexDeploy := &appsv1.Deployment{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: "dex"}, dexDeploy)
+	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexDeploy)
 	if err != nil && errors.IsNotFound(err) {
 		log.Error(err, "Dex deployment doesn't exists", "Deployment", dexDeploy.ObjectMeta.Name)
 		return reconcile.Result{Requeue: true}, nil
