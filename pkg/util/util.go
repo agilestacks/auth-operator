@@ -23,10 +23,10 @@ func UpdateDexDeployment(deployment *appsv1.Deployment, token string) bool {
 		}
 		return true
 	} else if deployment.Spec.Template.Annotations["agilestacks.io/config-checksum"] == token {
-		log.Info("No need to update the Dex deployment, checksum matched")
+		log.Info("No need to update the Dex deployment, checksum matched", "Checksum", token)
 		return false
 	}
-	log.Info("Updating Dex configmap checksum", "Checksum", token)
+	log.Info("Updating Dex configmap with checksum", "Checksum", token)
 	deployment.Spec.Template.Annotations["agilestacks.io/config-checksum"] = token
 	return true
 }

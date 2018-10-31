@@ -203,7 +203,8 @@ func (r *ReconcileOidc) deleteConfigMapEntry(configMap *corev1.ConfigMap, crd *a
 
 	for i := range c.StaticClients {
 		if c.StaticClients[i].ID == crd.Spec.ID {
-			log.Info("Deleting static client for CRD", "Static Client", c.StaticClients[i].ID)
+			log.Info("Deleting static client for Oidc CRD from Dex configmap", "Static Client",
+				c.StaticClients[i].ID, "Oidc CRD", crd.ObjectMeta.Name)
 			c.StaticClients = append(c.StaticClients[:i], c.StaticClients[i+1:]...)
 			cdata, err := yaml.Marshal(&c)
 			if err != nil {

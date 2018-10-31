@@ -162,7 +162,8 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 			"agilestacks.io/authproxy-service": ingressOrigServiceName,
 			"agilestacks.io/authproxy-port":    ingressOrigServicePort.String(),
 		}
-		log.Info("Updating Ingress")
+		log.Info("Updating service and port for Ingress", "Ingress", instance.ObjectMeta.Name,
+			"Service", authName, "Port", authPort)
 		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName = authName
 		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort = authPort
 		if err := r.Update(context.TODO(), instance); err != nil {
@@ -327,7 +328,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Update the StaticClient section of Dex ConfigMap and write the result back into dexCm
 	if updateDexConfigMapEntry(dexCm, aProxyIngProtocol, instance.Spec.Rules[0].Host) {
-		log.Info("Adding RedirectURI in Dex ConfigMap")
+		log.Info("Updating Dex ConfigMap")
 		if err := r.Update(context.TODO(), dexCm); err != nil {
 			return reconcile.Result{}, err
 		}
