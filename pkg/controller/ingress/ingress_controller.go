@@ -169,239 +169,191 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
+	// Used for Ingress and Deployment
+	authName := instance.GetName() + "-auth-svc"
+	authPort := aProxyPort
 
-	// Custom finalizer that deletes Dex ConfigMap entry, before Ingress is deleted
-	ingressFinalizer := "config.dex.agilestacks.com"
+	// Point Ingress to AuthProxy service and saves original data into annotations
+	if !(instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName == authName &&
+		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort == authPort) {
 
-	// Added exception for Traefik dashboard ingress, cause it is undeployed after Dex and will cause
-	// ingress deletion to stuck forever on finalizer(Dex configmap doesn't exists anymore)
-	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object.
-		if !util.ContainsString(instance.ObjectMeta.Finalizers, ingressFinalizer) && instance.ObjectMeta.Name != "traefik-dashboard" {
-			log.Info("Adding finalizer into Ingress", "Finalizer", ingressFinalizer, "Ingress", instance.ObjectMeta.Name)
-			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, ingressFinalizer)
-			if err = r.Update(context.Background(), instance); err != nil {
-				return reconcile.Result{Requeue: true}, nil
-			}
-		} else {
-			// Used for Ingress and Deployment
-			authName := instance.GetName() + "-auth-svc"
-			authPort := aProxyPort
-
-			// Point Ingress to AuthProxy service and saves original data into annotations
-			if !(instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName == authName &&
-				instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort == authPort) {
-
-				ingressOrigServiceName := instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName
-				ingressOrigServicePort := instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort
-				instance.Annotations = map[string]string{
-					"agilestacks.io/authproxy-service": ingressOrigServiceName,
-					"agilestacks.io/authproxy-port":    ingressOrigServicePort.String(),
-				}
-				log.Info("Updating Ingress")
-				instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName = authName
-				instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort = authPort
-				if err := r.Update(context.TODO(), instance); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-
-			//
-			// Create AuthProxy service and set owner ref to ingress
-			//
-			service := createService(instance)
-
-			// Get current AuthProxy service or create it
-			foundService := &corev1.Service{}
-			err = r.Get(context.TODO(), types.NamespacedName{Name: service.Name, Namespace: service.Namespace},
-				foundService)
-			if err != nil && errors.IsNotFound(err) {
-				log.Info("Creating AuthProxy service in the namespace",
-					"Service", service.Name, "Namespace", service.Namespace)
-				if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
-					return reconcile.Result{}, err
-				}
-				if err := r.Create(context.TODO(), service); err != nil {
-					return reconcile.Result{}, err
-				}
-			} else if err != nil {
-				return reconcile.Result{}, err
-			} else {
-				// Update the foundService object and write the result back if there are any changes
-				if copyServiceFields(service, foundService) {
-					log.Info("Updating AuthProxy service in the namespace",
-						"Service", service.Name, "Namespace", service.Namespace)
-					if err := r.Update(context.TODO(), service); err != nil {
-						return reconcile.Result{}, err
-					}
-				}
-			}
-
-			// Create AuthProxy ConfigMap
-			configMap := createConfigMap(instance, dexCm)
-
-			// Get current AuthProxy configmap or create it
-			foundConfigMap := &corev1.ConfigMap{}
-			err = r.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace},
-				foundConfigMap)
-			if err != nil && errors.IsNotFound(err) {
-				log.Info("Creating AuthProxy ConfigMap in the namespace",
-					"ConfigMap", configMap.Name, "Namespace", configMap.Namespace)
-				if err := controllerutil.SetControllerReference(instance, configMap, r.scheme); err != nil {
-					return reconcile.Result{}, err
-				}
-				if err := r.Create(context.TODO(), configMap); err != nil {
-					return reconcile.Result{}, err
-				}
-			} else if err != nil {
-				return reconcile.Result{}, err
-			} else {
-				// Update the foundConfigMap object and write the result back if there are any changes
-				if copyConfigMapFields(configMap, foundConfigMap) {
-					log.Info("Updating AuthProxy configmap in the namespace",
-						"ConfigMap", configMap.Name, "Namespace", configMap.Namespace)
-					if err := r.Update(context.TODO(), configMap); err != nil {
-						return reconcile.Result{}, err
-					}
-				}
-			}
-
-			//
-			// Create AuthProxy secret and set owner ref to ingress
-			//
-			secret := createSecret(instance)
-
-			// Get current AuthProxy secret or create it
-			foundSecret := &corev1.Secret{}
-			err = r.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace},
-				foundSecret)
-			if err != nil && errors.IsNotFound(err) {
-				log.Info("Creating AuthProxy secret in the namespace",
-					"Secret", secret.Name, "Namespace", secret.Namespace)
-				if err := controllerutil.SetControllerReference(instance, secret, r.scheme); err != nil {
-					return reconcile.Result{}, err
-				}
-				if err := r.Create(context.TODO(), secret); err != nil {
-					return reconcile.Result{}, err
-				}
-			} else if err != nil {
-				return reconcile.Result{}, err
-			} else {
-				// Update the foundSecret object and write the result back if there are any changes
-				if copySecretFields(secret, foundSecret) {
-					log.Info("Updating AuthProxy secret in the namespace",
-						"Secret", secret.Name, "Namespace", secret.Namespace)
-					if err := r.Update(context.TODO(), secret); err != nil {
-						return reconcile.Result{}, err
-					}
-				}
-
-			}
-
-			//
-			// Create AuthProxy deployment and set owner ref to ingress
-			//
-			var ingressServiceName string
-			var ingressServicePort string
-			// Get current AuthProxy deployment or create it
-			foundDeploy := &appsv1.Deployment{}
-			err = r.Get(context.TODO(), types.NamespacedName{Name: instance.GetName() + "-auth", Namespace: instance.GetNamespace()},
-				foundDeploy)
-			if err != nil && errors.IsNotFound(err) {
-
-				// Check if Ingress still contains initial service name and port
-
-				if instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName == authName &&
-					instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort == authPort {
-
-					ingressServiceName = instance.Annotations["agilestacks.io/authproxy-service"]
-					ingressServicePort = instance.Annotations["agilestacks.io/authproxy-port"]
-				} else {
-					ingressServiceName = instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName
-					ingressServicePort = instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()
-				}
-				deployment := createDeployment(instance, instance.Spec.Rules[0].Host, aProxyCookieExpire, aProxyEmailDomain,
-					ingressServiceName, ingressServicePort, aProxyImage, aProxyIngProtocol, aProxyPort)
-
-				log.Info("Creating AuthProxy deployment in the namespace",
-					"Deployment", deployment.Name, "Namespace", deployment.Namespace)
-				if err := controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
-					return reconcile.Result{}, err
-				}
-				if err := r.Create(context.TODO(), deployment); err != nil {
-					return reconcile.Result{}, err
-				}
-			} else if err != nil {
-				return reconcile.Result{}, err
-			} else {
-				// Update the foundDeploy object and write the result back if there are any changes
-				ingressServiceName = instance.Annotations["agilestacks.io/authproxy-service"]
-				ingressServicePort = instance.Annotations["agilestacks.io/authproxy-port"]
-
-				deployment := createDeployment(instance, instance.Spec.Rules[0].Host, aProxyCookieExpire, aProxyEmailDomain,
-					ingressServiceName, ingressServicePort, aProxyImage, aProxyIngProtocol, aProxyPort)
-
-				if copyDeploymentFields(deployment, foundDeploy) {
-					log.Info("Updating AuthProxy deployment in the namespace",
-						"Deployment", deployment.Name, "Namespace", deployment.Namespace)
-					if err := r.Update(context.TODO(), deployment); err != nil {
-						return reconcile.Result{}, err
-					}
-				}
-			}
-
-			// Update the StaticClient section of Dex ConfigMap and write the result back into dexCm
-			if updateDexConfigMapEntry(dexCm, aProxyIngProtocol, instance.Spec.Rules[0].Host) {
-				log.Info("Adding RedirectURI in Dex ConfigMap")
-				if err := r.Update(context.TODO(), dexCm); err != nil {
-					return reconcile.Result{}, err
-				}
-
-				// Calculate Dex ConfigMap checksum and put it into Dex deployment annotation for restart
-				configToken := util.ConvertConfigMapToToken(dexCm)
-
-				if util.UpdateDexDeployment(dexDeploy, configToken) {
-					log.Info("Restarting Dex deployment")
-					if err := r.Update(context.TODO(), dexDeploy); err != nil {
-						return reconcile.Result{}, err
-					}
-				}
-			}
-			return reconcile.Result{}, nil
+		ingressOrigServiceName := instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName
+		ingressOrigServicePort := instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort
+		instance.Annotations = map[string]string{
+			"agilestacks.io/authproxy-service": ingressOrigServiceName,
+			"agilestacks.io/authproxy-port":    ingressOrigServicePort.String(),
 		}
+		log.Info("Updating Ingress")
+		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName = authName
+		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort = authPort
+		if err := r.Update(context.TODO(), instance); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	//
+	// Create AuthProxy service and set owner ref to ingress
+	//
+	service := createService(instance)
+
+	// Get current AuthProxy service or create it
+	foundService := &corev1.Service{}
+	err = r.Get(context.TODO(), types.NamespacedName{Name: service.Name, Namespace: service.Namespace},
+		foundService)
+	if err != nil && errors.IsNotFound(err) {
+		log.Info("Creating AuthProxy service in the namespace",
+			"Service", service.Name, "Namespace", service.Namespace)
+		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		if err := r.Create(context.TODO(), service); err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
 	} else {
-		// The object is being deleted
-		if util.ContainsString(instance.ObjectMeta.Finalizers, ingressFinalizer) {
-			// our finalizer is present, so lets handle our external dependency
-
-			log.Info("Deleting RedirectURI from Dex ConfigMap")
-			if err := deleteDexConfigMapEntry(dexCm, aProxyIngProtocol, instance.Spec.Rules[0].Host); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
+		// Update the foundService object and write the result back if there are any changes
+		if copyServiceFields(service, foundService) {
+			log.Info("Updating AuthProxy service in the namespace",
+				"Service", service.Name, "Namespace", service.Namespace)
+			if err := r.Update(context.TODO(), service); err != nil {
 				return reconcile.Result{}, err
 			}
-			log.Info("Updating Dex ConfigMap after RedirectURI removal")
-			if err := r.Update(context.TODO(), dexCm); err != nil {
+		}
+	}
+
+	// Create AuthProxy ConfigMap
+	configMap := createConfigMap(instance, dexCm)
+
+	// Get current AuthProxy configmap or create it
+	foundConfigMap := &corev1.ConfigMap{}
+	err = r.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace},
+		foundConfigMap)
+	if err != nil && errors.IsNotFound(err) {
+		log.Info("Creating AuthProxy ConfigMap in the namespace",
+			"ConfigMap", configMap.Name, "Namespace", configMap.Namespace)
+		if err := controllerutil.SetControllerReference(instance, configMap, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		if err := r.Create(context.TODO(), configMap); err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	} else {
+		// Update the foundConfigMap object and write the result back if there are any changes
+		if copyConfigMapFields(configMap, foundConfigMap) {
+			log.Info("Updating AuthProxy configmap in the namespace",
+				"ConfigMap", configMap.Name, "Namespace", configMap.Namespace)
+			if err := r.Update(context.TODO(), configMap); err != nil {
 				return reconcile.Result{}, err
 			}
-			// Calculate Dex ConfigMap checksum and put it into Dex deployment annotation for restart
-			configToken := util.ConvertConfigMapToToken(dexCm)
+		}
+	}
 
-			if util.UpdateDexDeployment(dexDeploy, configToken) {
-				log.Info("Restarting Dex deployment")
-				if err := r.Update(context.TODO(), dexDeploy); err != nil {
-					return reconcile.Result{}, err
-				}
+	//
+	// Create AuthProxy secret and set owner ref to ingress
+	//
+	secret := createSecret(instance)
+
+	// Get current AuthProxy secret or create it
+	foundSecret := &corev1.Secret{}
+	err = r.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace},
+		foundSecret)
+	if err != nil && errors.IsNotFound(err) {
+		log.Info("Creating AuthProxy secret in the namespace",
+			"Secret", secret.Name, "Namespace", secret.Namespace)
+		if err := controllerutil.SetControllerReference(instance, secret, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		if err := r.Create(context.TODO(), secret); err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	} else {
+		// Update the foundSecret object and write the result back if there are any changes
+		if copySecretFields(secret, foundSecret) {
+			log.Info("Updating AuthProxy secret in the namespace",
+				"Secret", secret.Name, "Namespace", secret.Namespace)
+			if err := r.Update(context.TODO(), secret); err != nil {
+				return reconcile.Result{}, err
 			}
-			// remove our finalizer from the list and update it.
-			instance.ObjectMeta.Finalizers = util.RemoveString(instance.ObjectMeta.Finalizers, ingressFinalizer)
-			if err := r.Update(context.Background(), instance); err != nil {
-				return reconcile.Result{Requeue: true}, nil
+		}
+
+	}
+
+	//
+	// Create AuthProxy deployment and set owner ref to ingress
+	//
+	var ingressServiceName string
+	var ingressServicePort string
+	// Get current AuthProxy deployment or create it
+	foundDeploy := &appsv1.Deployment{}
+	err = r.Get(context.TODO(), types.NamespacedName{Name: instance.GetName() + "-auth", Namespace: instance.GetNamespace()},
+		foundDeploy)
+	if err != nil && errors.IsNotFound(err) {
+
+		// Check if Ingress still contains initial service name and port
+
+		if instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName == authName &&
+			instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort == authPort {
+
+			ingressServiceName = instance.Annotations["agilestacks.io/authproxy-service"]
+			ingressServicePort = instance.Annotations["agilestacks.io/authproxy-port"]
+		} else {
+			ingressServiceName = instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName
+			ingressServicePort = instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()
+		}
+		deployment := createDeployment(instance, instance.Spec.Rules[0].Host, aProxyCookieExpire, aProxyEmailDomain,
+			ingressServiceName, ingressServicePort, aProxyImage, aProxyIngProtocol, aProxyPort)
+
+		log.Info("Creating AuthProxy deployment in the namespace",
+			"Deployment", deployment.Name, "Namespace", deployment.Namespace)
+		if err := controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		if err := r.Create(context.TODO(), deployment); err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	} else {
+		// Update the foundDeploy object and write the result back if there are any changes
+		ingressServiceName = instance.Annotations["agilestacks.io/authproxy-service"]
+		ingressServicePort = instance.Annotations["agilestacks.io/authproxy-port"]
+
+		deployment := createDeployment(instance, instance.Spec.Rules[0].Host, aProxyCookieExpire, aProxyEmailDomain,
+			ingressServiceName, ingressServicePort, aProxyImage, aProxyIngProtocol, aProxyPort)
+
+		if copyDeploymentFields(deployment, foundDeploy) {
+			log.Info("Updating AuthProxy deployment in the namespace",
+				"Deployment", deployment.Name, "Namespace", deployment.Namespace)
+			if err := r.Update(context.TODO(), deployment); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	}
+
+	// Update the StaticClient section of Dex ConfigMap and write the result back into dexCm
+	if updateDexConfigMapEntry(dexCm, aProxyIngProtocol, instance.Spec.Rules[0].Host) {
+		log.Info("Adding RedirectURI in Dex ConfigMap")
+		if err := r.Update(context.TODO(), dexCm); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// Calculate Dex ConfigMap checksum and put it into Dex deployment annotation for restart
+		configToken := util.ConvertConfigMapToToken(dexCm)
+
+		if util.UpdateDexDeployment(dexDeploy, configToken) {
+			log.Info("Restarting Dex deployment")
+			if err := r.Update(context.TODO(), dexDeploy); err != nil {
+				return reconcile.Result{}, err
 			}
 		}
 	}
 	return reconcile.Result{}, nil
+
 }
 
 func matchIngress(host string, prefix string) bool {
