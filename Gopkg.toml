@@ -21,7 +21,7 @@ required = [
 
 [[constraint]]
   name = "github.com/agilestacks/dex"
-  version = "v2.12.0"
+  version = "v2.12.1"
 
 # STANZAS BELOW ARE GENERATED AND MAY BE WRITTEN - DO NOT MODIFY BELOW THIS LINE.
 

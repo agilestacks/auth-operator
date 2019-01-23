@@ -10,7 +10,7 @@
   version = "v0.31.0"
 
 [[projects]]
-  digest = "1:efb2a88c889e9ee335f6e3665cd8732425bab9951a8b6624a92ce3b930b7cc9e"
+  digest = "1:c310160f5a438b865b6fc8aa049a348c586230f5d288ed3b459ed6f8865a2c8c"
   name = "github.com/agilestacks/dex"
   packages = [
     "api",
@@ -35,8 +35,8 @@
     "version",
   ]
   pruneopts = "T"
-  revision = "0220afa405de60b60007e8230033289d85c918ba"
-  version = "v2.12.0"
+  revision = "219a34ffa9993db630059d1127359f4dfcd51904"
+  version = "v2.12.1"
 
 [[projects]]
   digest = "1:f25dfe4538112147d22e4c8437efbc2e216112bec37277534ffe146935064ea8"
@@ -1133,7 +1133,6 @@
     "github.com/sirupsen/logrus",
     "golang.org/x/crypto/bcrypt",
     "golang.org/x/net/context",
-    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
