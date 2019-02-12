@@ -158,15 +158,13 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		ingressOrigServiceName := instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName
 		ingressOrigServicePort := instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort
-		if len(instance.Annotations) == 0 {
-			instance.Annotations = map[string]string{
-				"agilestacks.io/authproxy-service": ingressOrigServiceName,
-				"agilestacks.io/authproxy-port":    ingressOrigServicePort.String(),
-			}
-		} else {
-			instance.Annotations["agilestacks.io/authproxy-service"] = ingressOrigServiceName
-			instance.Annotations["agilestacks.io/authproxy-port"] = ingressOrigServicePort.String()
+
+		if instance.Annotations == nil {
+			instance.Annotations = make(map[string]string)
 		}
+		instance.Annotations["agilestacks.io/authproxy-service"] = ingressOrigServiceName
+		// TODO if service port is specified by name this doesn't work
+		instance.Annotations["agilestacks.io/authproxy-port"] = ingressOrigServicePort.String()
 		log.Info("Updating service and port for Ingress", "Ingress", instance.ObjectMeta.Name,
 			"Service", authName, "Port", authPort)
 		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName = authName
