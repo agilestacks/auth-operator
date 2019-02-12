@@ -18,6 +18,7 @@ package ingress
 import (
 	"context"
 	"regexp"
+	"strings"
 
 	"os"
 
@@ -143,7 +144,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	if !matchIngress(instance.Spec.Rules[0].Host, aProxyIngPrefix) {
+	if skipIngress(instance) {
 		// Ingress doesn't match, return.
 		return reconcile.Result{}, nil
 	}
@@ -360,16 +361,28 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 }
 
-func matchIngress(host string, prefix string) bool {
-	match := regexp.MustCompile("\\." + prefix + "\\.")
-	if match.MatchString(host) {
+var ingressHostMatchers = []*regexp.Regexp{
+	regexp.MustCompile("\\." + aProxyIngPrefix + "\\."),
+	regexp.MustCompile("^" + aProxyIngPrefix + "\\."),
+}
+
+func skipIngress(ingress *extensionsv1beta1.Ingress) bool {
+	name := ingress.ObjectMeta.Name
+	// cert-manager installed ingress
+	if strings.HasPrefix(name, "cm-acme-http-solver") {
 		return true
 	}
-	match = regexp.MustCompile("^" + prefix + "\\.")
-	if match.MatchString(host) {
-		return true
+
+	if len(ingress.Spec.Rules) > 0 {
+		host := ingress.Spec.Rules[0].Host
+		for _, matcher := range ingressHostMatchers {
+			if matcher.MatchString(host) {
+				return false
+			}
+		}
 	}
-	return false
+
+	return true
 }
 
 // Update/Add RedirectURI entry in Dex ConfigMap
