@@ -17,7 +17,6 @@ package ingress
 
 import (
 	"context"
-	"regexp"
 	"strings"
 
 	"os"
@@ -361,22 +360,28 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 }
 
-var ingressHostMatchers = []*regexp.Regexp{
-	regexp.MustCompile("\\." + aProxyIngPrefix + "\\."),
-	regexp.MustCompile("^" + aProxyIngPrefix + "\\."),
-}
-
 func skipIngress(ingress *extensionsv1beta1.Ingress) bool {
 	name := ingress.ObjectMeta.Name
 	// cert-manager installed ingress
 	if strings.HasPrefix(name, "cm-acme-http-solver") {
 		return true
 	}
-
+	// let verify the host is one of:
+	// - [*.]apps.<stack>.<cloud account>.superhub.io - `apps` at least at index 4 from the right
+	// - [*.]apps.[*.]mydomain.tld - at least at index 2 for non-superhub.io domains
+	// still, there could be false positives for hosts like apps.app.stack.domain.tld
 	if len(ingress.Spec.Rules) > 0 {
-		host := ingress.Spec.Rules[0].Host
-		for _, matcher := range ingressHostMatchers {
-			if matcher.MatchString(host) {
+		host := strings.ToLower(ingress.Spec.Rules[0].Host)
+		parts := strings.Split(host, ".")
+		start := len(parts) - 1
+		superhub := strings.HasSuffix(host, ".superhub.io")
+		if superhub {
+			start -= 4
+		} else {
+			start -= 2
+		}
+		for i := start; i >= 0; i-- {
+			if parts[i] == aProxyIngPrefix {
 				return false
 			}
 		}
