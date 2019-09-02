@@ -21,7 +21,7 @@ import (
 
 	authv1alpha1 "github.com/agilestacks/auth-operator/pkg/apis/auth/v1alpha1"
 	util "github.com/agilestacks/auth-operator/pkg/util"
-	"github.com/agilestacks/dex/storage"
+	"github.com/dexidp/dex/storage"
 	yaml "github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

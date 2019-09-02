@@ -8,12 +8,12 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/agilestacks/dex/server"
-	"github.com/agilestacks/dex/storage"
-	"github.com/agilestacks/dex/storage/etcd"
-	"github.com/agilestacks/dex/storage/kubernetes"
-	"github.com/agilestacks/dex/storage/memory"
-	"github.com/sirupsen/logrus"
+	"github.com/dexidp/dex/pkg/log"
+	"github.com/dexidp/dex/server"
+	"github.com/dexidp/dex/storage"
+	"github.com/dexidp/dex/storage/etcd"
+	"github.com/dexidp/dex/storage/kubernetes"
+	"github.com/dexidp/dex/storage/memory"
 )
 
 // Config is the config format for the main application.
@@ -93,6 +93,8 @@ type OAuth2 struct {
 	// If specified, do not prompt the user to approve client authorization. The
 	// act of logging in implies authorization.
 	SkipApprovalScreen bool `json:"skipApprovalScreen"`
+	// If specified, show the connector selection screen even if there's only one
+	AlwaysShowLoginScreen bool `json:"alwaysShowLoginScreen"`
 }
 
 // Web is the config format for the HTTP server.
@@ -116,6 +118,7 @@ type GRPC struct {
 	TLSCert     string `json:"tlsCert"`
 	TLSKey      string `json:"tlsKey"`
 	TLSClientCA string `json:"tlsClientCA"`
+	Reflection  bool   `json:"reflection"`
 }
 
 // Storage holds app's storage configuration.
@@ -126,7 +129,7 @@ type Storage struct {
 
 // StorageConfig is a configuration that can create a storage.
 type StorageConfig interface {
-	Open(logrus.FieldLogger) (storage.Storage, error)
+	Open(logger log.Logger) (storage.Storage, error)
 }
 
 var storages = map[string]func() StorageConfig{
