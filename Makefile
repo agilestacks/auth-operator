@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= agilestacks/auth-operator:0.1.0
+IMG ?= agilestacks/auth-operator:0.1.1
 
 all: test manager
 

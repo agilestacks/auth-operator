@@ -107,6 +107,7 @@ func createDeployment(ingress metav1.Object, host string, cookieExpire string, e
 								"-oidc-issuer-url=$(OIDC_ISSUER_URL)",
 								"-http-address=http://0.0.0.0:4180",
 								"-upstream=http://" + service + "." + ingress.GetNamespace() + ".svc:" + servicePort,
+								"-skip-auth-regex=^/.well-known/acme-challenge/",
 								"-skip-provider-button=true",
 								"-ssl-insecure-skip-verify",
 							},
