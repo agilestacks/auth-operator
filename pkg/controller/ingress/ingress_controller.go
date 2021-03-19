@@ -34,9 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -127,13 +127,12 @@ type ReconcileIngress struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	logf.SetLogger(logf.ZapLogger(false))
+func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	log := logf.Log.WithName("ingress.controller")
 
 	// Fetch the Ingress instance
 	instance := &extensionsv1beta1.Ingress{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -170,7 +169,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 			"Service", authName, "Port", authPort)
 		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName = authName
 		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort = authPort
-		if err := r.Update(context.TODO(), instance); err != nil {
+		if err := r.Update(ctx, instance); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -182,7 +181,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Get current AuthProxy service or create it
 	foundService := &corev1.Service{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: service.Name, Namespace: service.Namespace},
+	err = r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace},
 		foundService)
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("Creating AuthProxy service in the namespace",
@@ -190,7 +189,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-		if err := r.Create(context.TODO(), service); err != nil {
+		if err := r.Create(ctx, service); err != nil {
 			return reconcile.Result{}, err
 		}
 	} else if err != nil {
@@ -200,7 +199,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		if copyServiceFields(service, foundService) {
 			log.Info("Updating AuthProxy service in the namespace",
 				"Service", service.Name, "Namespace", service.Namespace)
-			if err := r.Update(context.TODO(), service); err != nil {
+			if err := r.Update(ctx, service); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -210,7 +209,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 	// Fetch the Dex CM
 	//
 	dexCm := &corev1.ConfigMap{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexCm)
+	err = r.Get(ctx, types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexCm)
 	if err != nil && errors.IsNotFound(err) {
 		log.Error(err, "Dex config map doesn't exists", "ConfigMap", dexCm.ObjectMeta.Name)
 		return reconcile.Result{Requeue: true}, nil
@@ -222,7 +221,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Get current AuthProxy configmap or create it
 	foundConfigMap := &corev1.ConfigMap{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace},
+	err = r.Get(ctx, types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace},
 		foundConfigMap)
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("Creating AuthProxy ConfigMap in the namespace",
@@ -230,7 +229,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		if err := controllerutil.SetControllerReference(instance, configMap, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-		if err := r.Create(context.TODO(), configMap); err != nil {
+		if err := r.Create(ctx, configMap); err != nil {
 			return reconcile.Result{}, err
 		}
 	} else if err != nil {
@@ -240,7 +239,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		if copyConfigMapFields(configMap, foundConfigMap) {
 			log.Info("Updating AuthProxy configmap in the namespace",
 				"ConfigMap", configMap.Name, "Namespace", configMap.Namespace)
-			if err := r.Update(context.TODO(), configMap); err != nil {
+			if err := r.Update(ctx, configMap); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -253,7 +252,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Get current AuthProxy secret or create it
 	foundSecret := &corev1.Secret{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace},
+	err = r.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace},
 		foundSecret)
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("Creating AuthProxy secret in the namespace",
@@ -261,7 +260,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		if err := controllerutil.SetControllerReference(instance, secret, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-		if err := r.Create(context.TODO(), secret); err != nil {
+		if err := r.Create(ctx, secret); err != nil {
 			return reconcile.Result{}, err
 		}
 	} else if err != nil {
@@ -271,7 +270,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		if copySecretFields(secret, foundSecret) {
 			log.Info("Updating AuthProxy secret in the namespace",
 				"Secret", secret.Name, "Namespace", secret.Namespace)
-			if err := r.Update(context.TODO(), secret); err != nil {
+			if err := r.Update(ctx, secret); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -285,7 +284,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 	var ingressServicePort string
 	// Get current AuthProxy deployment or create it
 	foundDeploy := &appsv1.Deployment{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: instance.GetName() + "-auth", Namespace: instance.GetNamespace()},
+	err = r.Get(ctx, types.NamespacedName{Name: instance.GetName() + "-auth", Namespace: instance.GetNamespace()},
 		foundDeploy)
 	if err != nil && errors.IsNotFound(err) {
 
@@ -308,7 +307,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		if err := controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-		if err := r.Create(context.TODO(), deployment); err != nil {
+		if err := r.Create(ctx, deployment); err != nil {
 			return reconcile.Result{}, err
 		}
 	} else if err != nil {
@@ -324,7 +323,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 		if copyDeploymentFields(deployment, foundDeploy) {
 			log.Info("Updating AuthProxy deployment in the namespace",
 				"Deployment", deployment.Name, "Namespace", deployment.Namespace)
-			if err := r.Update(context.TODO(), deployment); err != nil {
+			if err := r.Update(ctx, deployment); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -333,7 +332,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 	// Update the StaticClient section of Dex ConfigMap and write the result back into dexCm
 	if updateDexConfigMapEntry(dexCm, aProxyIngProtocol, instance.Spec.Rules[0].Host) {
 		log.Info("Updating Dex ConfigMap")
-		if err := r.Update(context.TODO(), dexCm); err != nil {
+		if err := r.Update(ctx, dexCm); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -342,7 +341,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		// Fetch the Dex deployment
 		dexDeploy := &appsv1.Deployment{}
-		err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexDeploy)
+		err = r.Get(ctx, types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexDeploy)
 		if err != nil && errors.IsNotFound(err) {
 			log.Error(err, "Dex deployment doesn't exists", "Deployment", dexDeploy.ObjectMeta.Name)
 			return reconcile.Result{Requeue: true}, nil
@@ -352,7 +351,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		if util.UpdateDexDeployment(dexDeploy, configToken) {
 			log.Info("Restarting Dex deployment")
-			if err := r.Update(context.TODO(), dexDeploy); err != nil {
+			if err := r.Update(ctx, dexDeploy); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -399,7 +398,6 @@ func skipIngress(ingress *extensionsv1beta1.Ingress) bool {
 
 // Update/Add RedirectURI entry in Dex ConfigMap
 func updateDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host string) bool {
-	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("ingress.controller")
 
 	var c util.Config
@@ -437,7 +435,6 @@ func updateDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host 
 // Delete Dex ConfigMap entry based on RedirectURI
 func deleteDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host string) error {
 	var c util.Config
-	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("ingress.controller")
 	redirectURI := protocol + "://" + host + "/auth/callback"
 

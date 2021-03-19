@@ -8,12 +8,12 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/dexidp/dex/pkg/log"
 	"github.com/dexidp/dex/server"
 	"github.com/dexidp/dex/storage"
 	"github.com/dexidp/dex/storage/etcd"
 	"github.com/dexidp/dex/storage/kubernetes"
 	"github.com/dexidp/dex/storage/memory"
+	log "github.com/sirupsen/logrus"
 )
 
 // Config is the config format for the main application.
@@ -129,7 +129,7 @@ type Storage struct {
 
 // StorageConfig is a configuration that can create a storage.
 type StorageConfig interface {
-	Open(logger log.Logger) (storage.Storage, error)
+	Open(logger log.FieldLogger) (storage.Storage, error)
 }
 
 var storages = map[string]func() StorageConfig{

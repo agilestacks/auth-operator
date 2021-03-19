@@ -1,17 +1,12 @@
-# Build the manager binary
-FROM golang:1.13 as builder
+FROM golang:1.16 as builder
 
-# Copy in the go src
 WORKDIR /go/src/github.com/agilestacks/auth-operator
-COPY pkg/    pkg/
-COPY cmd/    cmd/
-COPY vendor/ vendor/
+COPY go.mod go.sum ./
+RUN go mod download
+COPY pkg/ pkg/
+COPY cmd/ cmd/
+RUN go build -ldflags "-linkmode external -extldflags -static" -o auth-operator github.com/agilestacks/auth-operator/cmd/manager
 
-# Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager github.com/agilestacks/auth-operator/cmd/manager
-
-# Copy the controller-manager into a thin image
-FROM ubuntu:latest
-WORKDIR /root/
-COPY --from=builder /go/src/github.com/agilestacks/auth-operator/manager .
-ENTRYPOINT ["./manager"]
+FROM alpine:3.13
+COPY --from=builder /go/src/github.com/agilestacks/auth-operator/auth-operator /bin/
+ENTRYPOINT ["/bin/auth-operator"]

@@ -8,12 +8,11 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // UpdateDexDeployment checks if checksum matches the one in the Deployment annotation
 func UpdateDexDeployment(deployment *appsv1.Deployment, token string) bool {
-	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("util.controller")
 
 	if len(deployment.Spec.Template.Annotations) == 0 {

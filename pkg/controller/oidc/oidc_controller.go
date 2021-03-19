@@ -31,9 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -81,13 +81,12 @@ type ReconcileOidc struct {
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=auth.agilestacks.com,resources=oidcs,verbs=get;list;watch;create;update;patch;delete
-func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	logf.SetLogger(logf.ZapLogger(false))
+func (r *ReconcileOidc) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	log := logf.Log.WithName("oidc.controller")
 
 	// Fetch the Oidc instance
 	instance := &authv1alpha1.Oidc{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -99,7 +98,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 
 	// Fetch the Dex CM
 	dexCm := &corev1.ConfigMap{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexCm)
+	err = r.Get(ctx, types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexCm)
 	if err != nil && errors.IsNotFound(err) {
 		log.Error(err, "Dex config map doesn't exists", "ConfigMap", dexCm.ObjectMeta.Name)
 		return reconcile.Result{Requeue: true}, nil
@@ -109,7 +108,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 
 	// Fetch the Dex deployment
 	dexDeploy := &appsv1.Deployment{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexDeploy)
+	err = r.Get(ctx, types.NamespacedName{Name: "dex", Namespace: aProxyDexNamespace}, dexDeploy)
 	if err != nil && errors.IsNotFound(err) {
 		log.Error(err, "Dex deployment doesn't exists", "Deployment", dexDeploy.ObjectMeta.Name)
 		return reconcile.Result{Requeue: true}, nil
@@ -136,7 +135,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 				return reconcile.Result{}, err
 			}
 			log.Info("Updating Dex ConfigMap after CRD update")
-			if err := r.Update(context.TODO(), dexCm); err != nil {
+			if err := r.Update(ctx, dexCm); err != nil {
 				return reconcile.Result{}, err
 			}
 
@@ -145,7 +144,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 
 			if util.UpdateDexDeployment(dexDeploy, configToken) {
 				log.Info("Restarting Dex deployment")
-				if err := r.Update(context.TODO(), dexDeploy); err != nil {
+				if err := r.Update(ctx, dexDeploy); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
@@ -163,7 +162,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 				return reconcile.Result{}, err
 			}
 			log.Info("Updating Dex ConfigMap after CRD delete", "CRD", instance.Spec.ID)
-			err = r.Update(context.TODO(), dexCm)
+			err = r.Update(ctx, dexCm)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -172,7 +171,7 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 
 			if util.UpdateDexDeployment(dexDeploy, configToken) {
 				log.Info("Restarting Dex deployment")
-				if err := r.Update(context.TODO(), dexDeploy); err != nil {
+				if err := r.Update(ctx, dexDeploy); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
@@ -189,7 +188,6 @@ func (r *ReconcileOidc) Reconcile(request reconcile.Request) (reconcile.Result, 
 // Delete Dex ConfigMap entry based on ID
 func (r *ReconcileOidc) deleteConfigMapEntry(configMap *corev1.ConfigMap, crd *authv1alpha1.Oidc) error {
 	var c util.Config
-	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("oidc.controller")
 	cdata := []byte(configMap.Data["config.yaml"])
 
