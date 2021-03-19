@@ -127,6 +127,7 @@ type ReconcileIngress struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// TODO cleanup Dex config when ingress is deleted
 func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	log := logf.Log.WithName("ingress.controller")
 
@@ -199,7 +200,10 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 		if copyServiceFields(service, foundService) {
 			log.Info("Updating AuthProxy service in the namespace",
 				"Service", service.Name, "Namespace", service.Namespace)
-			if err := r.Update(ctx, service); err != nil {
+			if err := controllerutil.SetControllerReference(instance, foundService, r.scheme); err != nil {
+				return reconcile.Result{}, err
+			}
+			if err := r.Update(ctx, foundService); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -239,7 +243,10 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 		if copyConfigMapFields(configMap, foundConfigMap) {
 			log.Info("Updating AuthProxy configmap in the namespace",
 				"ConfigMap", configMap.Name, "Namespace", configMap.Namespace)
-			if err := r.Update(ctx, configMap); err != nil {
+			if err := controllerutil.SetControllerReference(instance, foundConfigMap, r.scheme); err != nil {
+				return reconcile.Result{}, err
+			}
+			if err := r.Update(ctx, foundConfigMap); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -270,7 +277,10 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 		if copySecretFields(secret, foundSecret) {
 			log.Info("Updating AuthProxy secret in the namespace",
 				"Secret", secret.Name, "Namespace", secret.Namespace)
-			if err := r.Update(ctx, secret); err != nil {
+			if err := controllerutil.SetControllerReference(instance, foundSecret, r.scheme); err != nil {
+				return reconcile.Result{}, err
+			}
+			if err := r.Update(ctx, foundSecret); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -323,7 +333,10 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 		if copyDeploymentFields(deployment, foundDeploy) {
 			log.Info("Updating AuthProxy deployment in the namespace",
 				"Deployment", deployment.Name, "Namespace", deployment.Namespace)
-			if err := r.Update(ctx, deployment); err != nil {
+			if err := controllerutil.SetControllerReference(instance, foundDeploy, r.scheme); err != nil {
+				return reconcile.Result{}, err
+			}
+			if err := r.Update(ctx, foundDeploy); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
