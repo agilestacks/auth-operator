@@ -153,6 +153,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 	authPort := aProxyPort
 
 	// Point Ingress to AuthProxy service and saves original data into annotations
+	// TODO this should work with multiple hosts - under SSO and not
 	if !(instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName == authName &&
 		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort == authPort) {
 
@@ -360,33 +361,39 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 
 }
 
+// verify the host is one of:
+// - [*.]apps.<stack>.<cloud account>.superhub.io - `apps` at least at index 4 from the right
+// - [*.]apps.[*.]mydomain.tld - at least at index 2 for non-superhub.io domains
+// still, there could be false positives for hosts like apps.app.stack.domain.tld
+func hostUnderSSO(h string) bool {
+	host := strings.ToLower(h)
+	parts := strings.Split(host, ".")
+	start := len(parts) - 1
+	superhub := strings.HasSuffix(host, ".superhub.io")
+	if superhub {
+		start -= 4
+	} else {
+		start -= 2
+	}
+	for i := start; i >= 0; i-- {
+		if parts[i] == aProxyIngPrefix {
+			return true
+		}
+	}
+	return false
+}
+
 func skipIngress(ingress *extensionsv1beta1.Ingress) bool {
 	name := ingress.ObjectMeta.Name
 	// cert-manager installed ingress
 	if strings.HasPrefix(name, "cm-acme-http-solver") {
 		return true
 	}
-	// let verify the host is one of:
-	// - [*.]apps.<stack>.<cloud account>.superhub.io - `apps` at least at index 4 from the right
-	// - [*.]apps.[*.]mydomain.tld - at least at index 2 for non-superhub.io domains
-	// still, there could be false positives for hosts like apps.app.stack.domain.tld
-	if len(ingress.Spec.Rules) > 0 {
-		host := strings.ToLower(ingress.Spec.Rules[0].Host)
-		parts := strings.Split(host, ".")
-		start := len(parts) - 1
-		superhub := strings.HasSuffix(host, ".superhub.io")
-		if superhub {
-			start -= 4
-		} else {
-			start -= 2
-		}
-		for i := start; i >= 0; i-- {
-			if parts[i] == aProxyIngPrefix {
-				return false
-			}
+	for _, rule := range ingress.Spec.Rules {
+		if hostUnderSSO(rule.Host) {
+			return false
 		}
 	}
-
 	return true
 }
 
