@@ -220,6 +220,7 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	// Create AuthProxy ConfigMap
 	configMap := createConfigMap(instance, dexCm)
 
@@ -347,8 +348,12 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 		}
 	}
 
+	clientId, exist := dexCm.Data["consoleClientID"]
+	if !exist {
+		clientId = "auth-operator"
+	}
 	// Update the StaticClient section of Dex ConfigMap and write the result back into dexCm
-	if updateDexConfigMapEntry(dexCm, aProxyIngProtocol, instance.Spec.Rules[0].Host) {
+	if updateDexConfigMapEntry(dexCm, aProxyIngProtocol, instance.Spec.Rules[0].Host, clientId) {
 		log.Info("Updating Dex ConfigMap")
 		if err := r.Update(ctx, dexCm); err != nil {
 			return reconcile.Result{}, err
@@ -415,7 +420,7 @@ func skipIngress(ingress *extensionsv1beta1.Ingress) bool {
 }
 
 // Update/Add RedirectURI entry in Dex ConfigMap
-func updateDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host string) bool {
+func updateDexConfigMapEntry(configMap *corev1.ConfigMap, protocol, host, staticClientId string) bool {
 	log := logf.Log.WithName("ingress.controller")
 
 	var c util.Config
@@ -429,7 +434,7 @@ func updateDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host 
 	}
 
 	for i := range c.StaticClients {
-		if c.StaticClients[i].ID == "agilestacks-console" {
+		if c.StaticClients[i].ID == staticClientId {
 			if util.ContainsString(c.StaticClients[i].RedirectURIs, redirectURI) {
 				return false
 			}
@@ -451,7 +456,7 @@ func updateDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host 
 }
 
 // Delete Dex ConfigMap entry based on RedirectURI
-func deleteDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host string) error {
+func deleteDexConfigMapEntry(configMap *corev1.ConfigMap, protocol, host, staticClientId string) error {
 	var c util.Config
 	log := logf.Log.WithName("ingress.controller")
 	redirectURI := protocol + "://" + host + "/auth/callback"
@@ -463,7 +468,7 @@ func deleteDexConfigMapEntry(configMap *corev1.ConfigMap, protocol string, host 
 	}
 
 	for i := range c.StaticClients {
-		if c.StaticClients[i].ID == "agilestacks-console" {
+		if c.StaticClients[i].ID == staticClientId {
 			for j := range c.StaticClients[i].RedirectURIs {
 				if c.StaticClients[i].RedirectURIs[j] == redirectURI {
 					log.Info("Deleting RedirectURI in static client", "RedirectURI", redirectURI, "Static Client", c.StaticClients[i].ID)
