@@ -1,6 +1,10 @@
 package ingress
 
 import (
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,7 +88,7 @@ func createDeployment(ingress metav1.Object, host string, cookieExpire string, e
 											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "auth-proxy",
 											},
-											Key: "cookie_secret",
+											Key: "cookieSecret",
 										},
 									},
 								},
@@ -197,14 +201,20 @@ func createConfigMap(ingress metav1.Object, dexConfigMap *corev1.ConfigMap) *cor
 			"consoleClientID": dexConfigMap.Data["consoleClientID"],
 			"consoleSecret":   dexConfigMap.Data["consoleSecret"],
 			"issuer":          dexConfigMap.Data["issuer"],
-			"kubectlClientID": dexConfigMap.Data["kubectlClientID"],
-			"kubectlSecret":   dexConfigMap.Data["kubectlSecret"],
 		},
 	}
 
 	return configMap
 }
-func createSecret(ingress metav1.Object) *corev1.Secret {
+
+func createSecret(ingress metav1.Object) (*corev1.Secret, error) {
+	_, cookie, err := random(16)
+	if err != nil {
+		return nil, err
+	}
+	std := base64.StdEncoding
+	encoded := make([]byte, std.EncodedLen(len(cookie)))
+	std.Encode(encoded, cookie)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -212,12 +222,22 @@ func createSecret(ingress metav1.Object) *corev1.Secret {
 			Namespace: ingress.GetNamespace(),
 		},
 		Data: map[string][]byte{
-			"cookie_secret": []byte(`OFhNX2haSUdyZUVEMGZickhnUlBfZw==`),
+			"cookieSecret": encoded,
 		},
 		Type: "Opaque",
 	}
 
-	return secret
+	return secret, nil
+}
+
+func random(randomBytesLen int) (string, []byte, error) {
+	buf := make([]byte, randomBytesLen)
+	read, err := rand.Read(buf)
+	if err != nil {
+		return "", nil, fmt.Errorf("Unable to generate random chunk: random read error (read %d of %d random bytes): %v",
+			read, randomBytesLen, err)
+	}
+	return base64.RawStdEncoding.EncodeToString(buf), buf, nil
 }
 
 func int32Ptr(i int32) *int32 { return &i }

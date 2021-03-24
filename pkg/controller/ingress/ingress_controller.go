@@ -252,10 +252,11 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 		}
 	}
 
-	//
 	// Create AuthProxy secret and set owner ref to ingress
-	//
-	secret := createSecret(instance)
+	secret, err := createSecret(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// Get current AuthProxy secret or create it
 	foundSecret := &corev1.Secret{}
@@ -273,6 +274,10 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 	} else if err != nil {
 		return reconcile.Result{}, err
 	} else {
+		// the cookie is randomly generated and we don't want to change it
+		if cookie, exist := foundSecret.Data["cookieSecret"]; exist && len(cookie) > 0 {
+			secret.Data["cookieSecret"] = cookie
+		}
 		// Update the foundSecret object and write the result back if there are any changes
 		if copySecretFields(secret, foundSecret) {
 			log.Info("Updating AuthProxy secret in the namespace",
