@@ -8,5 +8,5 @@ spec:
     spec:
       containers:
       # Change the value of image field below to your controller image URL
-      - image: agilestacks/auth-operator:0.2.1
+      - image: agilestacks/auth-operator:0.2.2
         name: manager
