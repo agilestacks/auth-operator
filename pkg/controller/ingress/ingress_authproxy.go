@@ -93,7 +93,9 @@ func createDeployment(ingress metav1.Object, host string, cookieExpire string, e
 									},
 								},
 							},
-							Args: []string{"--provider=oidc",
+							Args: []string{
+								"--provider=oidc",
+								"--scope=openid profile email groups",
 								"--client-id=$(CLIENT_ID)",
 								"--client-secret=$(CLIENT_SECRET)",
 								"--cookie-secret=$(COOKIE_SECRET)",
