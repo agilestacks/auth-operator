@@ -108,6 +108,7 @@ func createDeployment(ingress metav1.Object, host string, cookieExpire string, e
 								"--cookie-expire=" + cookieExpire,
 								"--cookie-secure=" + secure,
 								"--cookie-httponly=true",
+								"--session-cookie-minimal=true",
 								"--email-domain=" + emailDomain,
 								"--redirect-url=" + protocol + "://" + host + "/auth/callback",
 								"--oidc-issuer-url=$(OIDC_ISSUER_URL)",
