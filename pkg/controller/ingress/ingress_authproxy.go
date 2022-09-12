@@ -12,7 +12,7 @@ import (
 )
 
 func createDeployment(ingress metav1.Object, host string, cookieExpire string, emailDomain string,
-	service string, servicePort string, image string, protocol string, port intstr.IntOrString) *appsv1.Deployment {
+	service string, servicePort string, image string, protocol string, port int) *appsv1.Deployment {
 
 	var secure string
 	if protocol == "https" {
@@ -126,10 +126,10 @@ func createDeployment(ingress metav1.Object, host string, cookieExpire string, e
 								},
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path:   "/ping",
-										Port:   port,
+										Port:   intstr.FromInt(port),
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},
@@ -140,10 +140,10 @@ func createDeployment(ingress metav1.Object, host string, cookieExpire string, e
 								FailureThreshold:    3,
 							},
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path:   "/ping",
-										Port:   port,
+										Port:   intstr.FromInt(port),
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},

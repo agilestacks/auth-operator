@@ -17,6 +17,7 @@ package ingress
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"os"
@@ -25,11 +26,10 @@ import (
 	yaml "github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -46,7 +46,7 @@ var aProxyEmailDomain = os.Getenv("APROXY_EMAIL_DOMAIN")
 var aProxyIngPrefix = os.Getenv("APROXY_ING_PREFIX")
 var aProxyIngProtocol = os.Getenv("APROXY_ING_PROTO")
 var aProxyDexNamespace = os.Getenv("APROXY_DEX_NAMESPACE")
-var aProxyPort = intstr.FromInt(4180)
+var aProxyPort = 4180
 
 // Add creates a new Ingress Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -68,7 +68,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Ingress
-	err = c.Watch(&source.Kind{Type: &extensionsv1beta1.Ingress{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &networkingv1.Ingress{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch a Deployment created by Ingress
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &extensionsv1beta1.Ingress{},
+		OwnerType:    &networkingv1.Ingress{},
 	})
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch a ConfigMap created by Ingress
 	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &extensionsv1beta1.Ingress{},
+		OwnerType:    &networkingv1.Ingress{},
 	})
 	if err != nil {
 		return err
@@ -94,7 +94,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch a Service created by Ingress
 	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &extensionsv1beta1.Ingress{},
+		OwnerType:    &networkingv1.Ingress{},
 	})
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch a Secret created by Ingress
 	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &extensionsv1beta1.Ingress{},
+		OwnerType:    &networkingv1.Ingress{},
 	})
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ type ReconcileIngress struct {
 
 // Reconcile reads that state of the cluster for a Ingress object and makes changes based on the state read
 // and what is in the Ingress.Spec
-// +kubebuilder:rbac:groups=extensions,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -132,7 +132,7 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 	log := logf.Log.WithName("ingress.controller")
 
 	// Fetch the Ingress instance
-	instance := &extensionsv1beta1.Ingress{}
+	instance := &networkingv1.Ingress{}
 	err := r.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -154,22 +154,22 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 
 	// Point Ingress to AuthProxy service and saves original data into annotations
 	// TODO this should work with multiple hosts - under SSO and not
-	if !(instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName == authName &&
-		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort == authPort) {
+	if !(instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name == authName &&
+		instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number == int32(authPort)) {
 
-		ingressOrigServiceName := instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName
-		ingressOrigServicePort := instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort
+		ingressOrigServiceName := instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name
+		ingressOrigServicePort := int(instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number)
 
 		if instance.Annotations == nil {
 			instance.Annotations = make(map[string]string)
 		}
 		instance.Annotations["agilestacks.io/authproxy-service"] = ingressOrigServiceName
 		// TODO if service port is specified by name this doesn't work
-		instance.Annotations["agilestacks.io/authproxy-port"] = ingressOrigServicePort.String()
+		instance.Annotations["agilestacks.io/authproxy-port"] = strconv.Itoa(ingressOrigServicePort)
 		log.Info("Updating service and port for Ingress", "Ingress", instance.ObjectMeta.Name,
 			"Service", authName, "Port", authPort)
-		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName = authName
-		instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort = authPort
+		instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name = authName
+		instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number = int32(authPort)
 		if err := r.Update(ctx, instance); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -306,14 +306,14 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Requ
 
 		// Check if Ingress still contains initial service name and port
 
-		if instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName == authName &&
-			instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort == authPort {
+		if instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name == authName &&
+			instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number == int32(authPort) {
 
 			ingressServiceName = instance.Annotations["agilestacks.io/authproxy-service"]
 			ingressServicePort = instance.Annotations["agilestacks.io/authproxy-port"]
 		} else {
-			ingressServiceName = instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName
-			ingressServicePort = instance.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()
+			ingressServiceName = instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name
+			ingressServicePort = instance.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.String()
 		}
 		deployment := createDeployment(instance, instance.Spec.Rules[0].Host, aProxyCookieExpire, aProxyEmailDomain,
 			ingressServiceName, ingressServicePort, aProxyImage, aProxyIngProtocol, aProxyPort)
@@ -405,7 +405,7 @@ func hostUnderSSO(h string) bool {
 	return false
 }
 
-func skipIngress(ingress *extensionsv1beta1.Ingress) bool {
+func skipIngress(ingress *networkingv1.Ingress) bool {
 	name := ingress.ObjectMeta.Name
 	// cert-manager installed ingress
 	if strings.HasPrefix(name, "cm-acme-http-solver") {
